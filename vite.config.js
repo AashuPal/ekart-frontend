@@ -7,7 +7,7 @@ export default defineConfig({
     port: 5173,
     proxy: {
       '/auth': {
-        target: 'http://localhost:8080',
+        target: 'https://api-gateway-wuk2.onrender.com',
         changeOrigin: true,
         bypass: function(req) {
           // DON'T proxy the Google callback - it's a frontend route
@@ -17,7 +17,7 @@ export default defineConfig({
         }
       },
       '/api': {
-        target: 'http://localhost:8080',
+        target: 'https://api-gateway-wuk2.onrender.com',
         changeOrigin: true,
       },
     },
