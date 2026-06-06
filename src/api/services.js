@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const GATEWAY_URL = import.meta.env.VITE_GATEWAY_URL || 'http://localhost:8080';
+const GATEWAY_URL = import.meta.env.VITE_GATEWAY_URL || 'https://api-gateway-p817.onrender.com';
 
 const api = axios.create({
   baseURL: GATEWAY_URL,

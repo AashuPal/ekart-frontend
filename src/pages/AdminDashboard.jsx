@@ -2,16 +2,14 @@ import { useState, useEffect } from 'react';
 import { productAPI, orderAPI, authAPI, notificationAPI } from '../api/axios';
 import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
-import axios from '../api/axios';
-import API from '../api/axios';
 import {
   FiPackage, FiGrid, FiTag, FiUsers, FiDollarSign,
   FiPlus, FiEdit2, FiTrash2, FiX, FiSearch, FiRefreshCw,
-  FiChevronLeft, FiChevronRight, FiEye, FiTruck, FiShoppingBag,
-  FiUserCheck, FiClock, FiMapPin, FiTrendingUp, FiActivity, FiUser, FiMail
+  FiChevronLeft, FiChevronRight, FiTruck, FiShoppingBag,
+  FiUserCheck, FiTrendingUp, FiActivity, FiUser,
 } from 'react-icons/fi';
 
-// Helper: generate a consistent UUID from email (for userId where backend expects UUID)
+// Helper: generate a consistent UUID from email
 const emailToUUID = (email) => {
   let hash = 0;
   for (let i = 0; i < email.length; i++) {
@@ -54,18 +52,18 @@ const AdminDashboard = () => {
   const [selectedUser, setSelectedUser] = useState(null);
   const [newRole, setNewRole] = useState('');
 
-  // View user orders modal (new)
+  // User orders modal
   const [userOrdersModal, setUserOrdersModal] = useState(false);
   const [userOrders, setUserOrders] = useState([]);
   const [viewingUser, setViewingUser] = useState(null);
 
+  // User detail modal
+  const [userDetailModal, setUserDetailModal] = useState(false);
+  const [detailUser, setDetailUser] = useState(null);
+
   const isSuperAdmin =
     (user?.email === 'admin@ekart.com' || user?.emailId === 'admin@ekart.com') &&
     (user?.role === 'ROLE_ADMIN' || user?.role === 'ADMIN');
-
-  // User detail modal (read‑only)
-  const [userDetailModal, setUserDetailModal] = useState(false);
-  const [detailUser, setDetailUser] = useState(null);
 
   // Product form
   const [productForm, setProductForm] = useState({
@@ -104,12 +102,14 @@ const AdminDashboard = () => {
     }
   };
 
+  // ✅ FIX 1: removed undefined setTotalProducts
   const loadProducts = async () => {
     try {
       const res = await productAPI.getProducts(currentPage, 20);
-      setProducts(res.data.products || res.data || []);
-      setTotalPages(res.data.totalPages || 1);
-      setTotalProducts(data.totalElements || data.totalItems || productList.length);
+      const data = res.data;
+      const productList = data.products || (Array.isArray(data) ? data : []);
+      setProducts(productList);
+      setTotalPages(data.totalPages || 1);
     } catch (err) { console.error('Products:', err); }
   };
 
@@ -136,16 +136,13 @@ const AdminDashboard = () => {
 
       let res;
       if (isAdmin) {
-        // Admin → call getAllOrders (headers added automatically)
         res = await orderAPI.getAllOrders(0, 100);
       } else {
-        // Regular user → use existing user-specific endpoint
         const email = storedUser.email || storedUser.emailId || '';
         const userId = emailToUUID(email);
         res = await orderAPI.getOrders(0, 100, userId);
       }
 
-      // Extract orders (OrderListResponse.orders or plain array)
       let ordersList = [];
       if (res.data && Array.isArray(res.data.orders)) {
         ordersList = res.data.orders;
@@ -156,7 +153,6 @@ const AdminDashboard = () => {
       }
 
       setOrders(ordersList);
-
       const revenue = ordersList
         .filter(o => o.status === 'DELIVERED' || o.status === 'CONFIRMED')
         .reduce((sum, o) => sum + (o.totalAmount || 0), 0);
@@ -169,16 +165,12 @@ const AdminDashboard = () => {
     }
   };
 
+  // ✅ FIX 2: use authAPI instead of raw fetch (which used relative URL)
   const loadUsers = async () => {
+    setTabLoading(true);
     try {
-      const token = localStorage.getItem('token');
-      const res = await fetch('/auth/users', {
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setUsers(Array.isArray(data) ? data : []);
-      }
+      const res = await authAPI.getUsers();
+      setUsers(Array.isArray(res.data) ? res.data : []);
     } catch (err) {
       console.error('Users:', err);
       const stored = JSON.parse(localStorage.getItem('user') || 'null');
@@ -266,7 +258,7 @@ const AdminDashboard = () => {
     } catch (err) { toast.error('Failed to save brand'); }
   };
 
-  // ============ DELETE HANDLER ============
+  // ============ DELETE HANDLERS ============
   const handleDelete = async (type, id) => {
     try {
       if (type === 'product') await productAPI.deleteProduct(id);
@@ -275,26 +267,23 @@ const AdminDashboard = () => {
       setDeleteConfirm(null); loadDashboardData();
     } catch (err) { toast.error(`Failed to delete ${type}`); }
   };
+
   const handleDeleteBrand = async (brandId) => {
     if (!window.confirm('Delete this brand?')) return;
     try {
       await productAPI.deleteBrand(brandId);
       toast.success('Brand deleted');
-      loadBrands(); // refresh list
-    } catch (err) {
-      toast.error('Failed to delete brand');
-    }
+      loadBrands();
+    } catch (err) { toast.error('Failed to delete brand'); }
   };
 
-  // ============ ORDER HANDLERS (with email notification) ============
+  // ============ ORDER HANDLERS ============
   const handleUpdateOrderStatus = async () => {
     try {
       await orderAPI.updateOrderStatus(selectedOrder.id, {
         status: newStatus,
         trackingNumber: trackingNumber || undefined
       });
-
-      // Send email notification
       try {
         await notificationAPI.sendOrderStatusUpdate({
           to: selectedOrder.userEmail,
@@ -306,13 +295,10 @@ const AdminDashboard = () => {
       } catch (emailErr) {
         console.warn('Email notification failed', emailErr);
       }
-
       toast.success(`Order status updated to ${newStatus}!`);
       setShowStatusModal(false);
       loadOrders();
-    } catch (err) {
-      toast.error('Failed to update status');
-    }
+    } catch (err) { toast.error('Failed to update status'); }
   };
 
   const handleCancelOrder = async (orderId) => {
@@ -324,24 +310,15 @@ const AdminDashboard = () => {
     } catch (err) { toast.error('Failed to cancel'); }
   };
 
-  // ============ USER HANDLERS (role & view orders & details) ============
+  // ============ USER HANDLERS ============
+  // ✅ FIX 3: use authAPI.updateUserRole instead of raw fetch with relative URL
   const handleUpdateUserRole = async () => {
     const email = selectedUser.email || selectedUser.emailId;
     if (!email) return toast.error('Email not found');
 
-    // Strip any accidental prefix (just in case)
     const plainRole = newRole.replace(/^ROLE_/, '');
     const roleToSend = `ROLE_${plainRole}`;
-    const adminEmail = 'admin@ekart.com';   // match your working curl
 
-    console.log('🔍 Role update debug:');
-    console.log('Target email:', email);
-    console.log('Current newRole state:', newRole);
-    console.log('Plain role:', plainRole);
-    console.log('Will send role:', roleToSend);
-    console.log('Admin header email:', adminEmail);
-
-    // Safety: if role isn't changing, warn user
     const currentUserRole = (selectedUser.role || '').replace(/^ROLE_/, '');
     if (plainRole === currentUserRole) {
       toast.error(`User already has role ${plainRole}. No change needed.`);
@@ -349,44 +326,21 @@ const AdminDashboard = () => {
     }
 
     try {
-      const res = await fetch(
-        `/auth/users/${encodeURIComponent(email)}/role?role=${encodeURIComponent(roleToSend)}`,
-        {
-          method: 'PUT',
-          headers: {
-            'X-User-Email': adminEmail,
-            'X-User-Role': 'ROLE_ADMIN',
-            'Content-Type': 'application/json'
-          }
-        }
-      );
+      await authAPI.updateUserRole(email, roleToSend);
+      toast.success(`Role updated to ${plainRole}`);
+      setShowRoleModal(false);
+      loadUsers();
 
-      console.log('Response status:', res.status);
-      const responseText = await res.text();
-      console.log('Response body:', responseText);
-
-      if (res.ok) {
-        toast.success(`Role updated to ${plainRole}`);
-        setShowRoleModal(false);
-        loadUsers();
-
-        // Reload if own role changed
-        const currentEmail = (user?.email || user?.emailId || '').toLowerCase();
-        const targetEmail = (selectedUser.email || selectedUser.emailId || '').toLowerCase();
-        if (currentEmail === targetEmail) {
-          const storedUser = JSON.parse(localStorage.getItem('user') || '{}');
-          storedUser.role = plainRole;
-          localStorage.setItem('user', JSON.stringify(storedUser));
-          window.dispatchEvent(new Event('storage'));
-          toast.success('Your own role has changed. Reloading...');
-          setTimeout(() => window.location.reload(), 2000);
-        }
-      } else {
-        toast.error(`Failed: ${responseText || res.status}`);
+      const currentEmail = (user?.email || user?.emailId || '').toLowerCase();
+      if (email.toLowerCase() === currentEmail) {
+        const storedUser = JSON.parse(localStorage.getItem('user') || '{}');
+        storedUser.role = plainRole;
+        localStorage.setItem('user', JSON.stringify(storedUser));
+        toast.success('Your role changed. Reloading...');
+        setTimeout(() => window.location.reload(), 2000);
       }
     } catch (err) {
-      console.error(err);
-      toast.error('Network error – see console');
+      toast.error(err.response?.data?.message || 'Failed to update role');
     }
   };
 
@@ -396,12 +350,10 @@ const AdminDashboard = () => {
     const userId = emailToUUID(email);
     try {
       const res = await orderAPI.getOrders(0, 50, userId);
-      setUserOrders(res.data.orders || []);
+      setUserOrders(res.data.orders || res.data || []);
       setViewingUser(usr);
       setUserOrdersModal(true);
-    } catch (err) {
-      toast.error('Failed to load user orders');
-    }
+    } catch (err) { toast.error('Failed to load user orders'); }
   };
 
   const viewUserDetails = async (usr) => {
@@ -411,33 +363,22 @@ const AdminDashboard = () => {
       const res = await authAPI.getUserByEmail(email);
       setDetailUser(res.data);
     } catch {
-      setDetailUser(usr); // fallback
+      setDetailUser(usr);
     }
     setUserDetailModal(true);
   };
+
   const handleDeleteUser = async (usr) => {
     const email = usr.email || usr.emailId;
-    if (!email) {
-      toast.error('User email not available');
-      return;
-    }
-
-    // Prevent self‑delete
+    if (!email) { toast.error('User email not available'); return; }
     const currentEmail = (user?.email || user?.emailId || '').toLowerCase();
-    if (email.toLowerCase() === currentEmail) {
-      toast.error('You cannot delete your own account');
-      return;
-    }
-
+    if (email.toLowerCase() === currentEmail) { toast.error('You cannot delete your own account'); return; }
     if (!window.confirm(`Delete user "${usr.name}"? This cannot be undone.`)) return;
-
     try {
-      await authAPI.deleteUser(email);   // calls DELETE /auth/users/{email}
+      await authAPI.deleteUser(email);
       toast.success('User deleted');
       loadUsers();
-    } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to delete user');
-    }
+    } catch (err) { toast.error(err.response?.data?.message || 'Failed to delete user'); }
   };
 
   // ============ FILTERS ============
@@ -445,13 +386,11 @@ const AdminDashboard = () => {
     p.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     p.categoryName?.toLowerCase().includes(searchTerm.toLowerCase())
   );
-
   const filteredOrders = orders.filter(o =>
     o.orderNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     o.userEmail?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     o.status?.toLowerCase().includes(searchTerm.toLowerCase())
   );
-
   const filteredUsers = users.filter(u =>
     u.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     (u.email || u.emailId)?.toLowerCase().includes(searchTerm.toLowerCase())
@@ -477,18 +416,18 @@ const AdminDashboard = () => {
     { label: 'Revenue', value: `₹${totalRevenue.toLocaleString('en-IN')}`, icon: FiDollarSign, gradient: 'from-cyan-500 to-sky-600' },
   ];
 
-  // ============ SKELETON LOADER ============
+  // ============ SKELETON ============
   if (loading) {
     return (
       <div className="pt-16 min-h-screen bg-gray-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <div className="mb-8 animate-fade-in">
+          <div className="mb-8">
             <div className="skeleton h-8 w-64 rounded-lg mb-2"></div>
             <div className="skeleton h-4 w-48 rounded-lg"></div>
           </div>
           <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 mb-8">
             {[...Array(6)].map((_, i) => (
-              <div key={i} className="skeleton h-28 rounded-2xl" style={{ animationDelay: `${i * 0.05}s` }}></div>
+              <div key={i} className="skeleton h-28 rounded-2xl"></div>
             ))}
           </div>
           <div className="flex gap-2 mb-6">
@@ -519,7 +458,7 @@ const AdminDashboard = () => {
           </div>
           <div className="flex items-center space-x-3 mt-4 sm:mt-0">
             <button onClick={loadDashboardData} className="flex items-center space-x-2 px-4 py-2 bg-white border border-gray-300 rounded-xl hover:bg-gray-50 transition-all text-sm font-medium">
-              <FiRefreshCw className="group-hover:animate-spin" />
+              <FiRefreshCw />
               <span>Refresh</span>
             </button>
             <div className="flex items-center space-x-2 bg-white px-4 py-2 rounded-xl border shadow-sm">
@@ -534,9 +473,9 @@ const AdminDashboard = () => {
         {/* STATS */}
         <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4 mb-8 stagger-children">
           {stats.map((stat) => (
-            <div key={stat.label} className={`bg-gradient-to-br ${stat.gradient} rounded-2xl shadow-lg p-5 text-white animate-fade-in-up group cursor-default`}>
+            <div key={stat.label} className={`bg-gradient-to-br ${stat.gradient} rounded-2xl shadow-lg p-5 text-white animate-fade-in-up cursor-default`}>
               <div className="flex items-center justify-between mb-3">
-                <div className={`w-10 h-10 rounded-xl flex items-center justify-center bg-white/20`}>
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-white/20">
                   <stat.icon className="text-white text-lg" />
                 </div>
               </div>
@@ -570,8 +509,7 @@ const AdminDashboard = () => {
             { key: 'users', label: 'Users', icon: FiUsers },
           ].map((tab) => (
             <button key={tab.key} onClick={() => switchTab(tab.key)}
-              className={`flex items-center space-x-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all ${activeTab === tab.key ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg' : 'text-gray-500 hover:bg-gray-100'
-                }`}>
+              className={`flex items-center space-x-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all ${activeTab === tab.key ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg' : 'text-gray-500 hover:bg-gray-100'}`}>
               <tab.icon className="text-sm" />
               <span className="hidden sm:inline">{tab.label}</span>
             </button>
@@ -597,7 +535,7 @@ const AdminDashboard = () => {
           </div>
         )}
 
-        {/* DASHBOARD TAB (unchanged) */}
+        {/* DASHBOARD TAB */}
         {activeTab === 'dashboard' && (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-fade-in-up">
             <div className="lg:col-span-2 bg-white rounded-2xl shadow-sm border p-6">
@@ -606,9 +544,7 @@ const AdminDashboard = () => {
                 {orders.slice(0, 6).map(order => (
                   <div key={order.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors">
                     <div className="flex items-center space-x-4">
-                      <div className={`w-2 h-2 rounded-full ${order.status === 'DELIVERED' ? 'bg-green-500' :
-                        order.status === 'CANCELLED' ? 'bg-red-500' : 'bg-blue-500'
-                        }`}></div>
+                      <div className={`w-2 h-2 rounded-full ${order.status === 'DELIVERED' ? 'bg-green-500' : order.status === 'CANCELLED' ? 'bg-red-500' : 'bg-blue-500'}`}></div>
                       <div>
                         <p className="font-semibold text-sm">{order.orderNumber || order.id?.substring(0, 12)}</p>
                         <p className="text-xs text-gray-500">{order.userName} • ₹{order.totalAmount?.toLocaleString()}</p>
@@ -617,6 +553,7 @@ const AdminDashboard = () => {
                     <span className={`px-3 py-1 rounded-full text-xs font-semibold ${getStatusColor(order.status)}`}>{order.status}</span>
                   </div>
                 ))}
+                {orders.length === 0 && <p className="text-gray-400 text-sm text-center py-8">No orders yet</p>}
               </div>
             </div>
             <div className="bg-white rounded-2xl shadow-sm border p-6">
@@ -633,15 +570,12 @@ const AdminDashboard = () => {
           </div>
         )}
 
-        {/* PRODUCTS TAB (unchanged but polished) */}
+        {/* PRODUCTS TAB */}
         {activeTab === 'products' && (
           <div className="bg-white rounded-2xl shadow-sm border overflow-hidden animate-fade-in-up">
             {tabLoading ? (
-              <div className="p-6">
-                <div className="skeleton h-10 w-full rounded-xl mb-4"></div>
-                {[...Array(5)].map((_, i) => (
-                  <div key={i} className="skeleton h-16 w-full rounded-lg mb-2" style={{ animationDelay: `${i * 0.1}s` }}></div>
-                ))}
+              <div className="p-6 space-y-2">
+                {[...Array(5)].map((_, i) => <div key={i} className="skeleton h-16 w-full rounded-lg"></div>)}
               </div>
             ) : (
               <>
@@ -660,7 +594,7 @@ const AdminDashboard = () => {
                     </thead>
                     <tbody className="divide-y divide-gray-50">
                       {filteredProducts.map((product) => (
-                        <tr key={product.id} className="hover:bg-indigo-50/30 transition-colors group">
+                        <tr key={product.id} className="hover:bg-indigo-50/30 transition-colors">
                           <td className="py-3.5 px-5">
                             <div className="flex items-center space-x-3">
                               <img src={product.thumbnailUrl || `https://placehold.co/44x44/E2E8F0/94A3B8?text=${encodeURIComponent(product.name?.charAt(0) || 'P')}`} alt="" className="w-11 h-11 rounded-xl object-cover border border-gray-100" onError={(e) => { e.target.src = 'https://placehold.co/44x44/E2E8F0/94A3B8?text=P'; }} />
@@ -686,9 +620,7 @@ const AdminDashboard = () => {
                     </tbody>
                   </table>
                 </div>
-                {filteredProducts.length === 0 && (
-                  <div className="empty-state py-16"><FiPackage className="empty-state-icon" /><h3 className="empty-state-title">No products found</h3></div>
-                )}
+                {filteredProducts.length === 0 && <div className="empty-state py-16"><FiPackage className="empty-state-icon" /><h3 className="empty-state-title">No products found</h3></div>}
                 {totalPages > 1 && (
                   <div className="flex items-center justify-between px-4 py-3 border-t bg-gray-50">
                     <p className="text-sm text-gray-600">Page {currentPage + 1} of {totalPages}</p>
@@ -703,7 +635,7 @@ const AdminDashboard = () => {
           </div>
         )}
 
-        {/* CATEGORIES TAB (unchanged) */}
+        {/* CATEGORIES TAB */}
         {activeTab === 'categories' && (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 stagger-children">
             {categories.map((cat) => (
@@ -724,7 +656,7 @@ const AdminDashboard = () => {
           </div>
         )}
 
-        {/* BRANDS TAB (unchanged) */}
+        {/* BRANDS TAB */}
         {activeTab === 'brands' && (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 stagger-children">
             {brands.map((brand) => (
@@ -742,15 +674,12 @@ const AdminDashboard = () => {
           </div>
         )}
 
-        {/* ORDERS TAB (with email notification) */}
+        {/* ORDERS TAB */}
         {activeTab === 'orders' && (
           <div className="bg-white rounded-2xl shadow-sm border overflow-hidden animate-fade-in-up">
             {tabLoading ? (
-              <div className="p-6">
-                <div className="skeleton h-10 w-full rounded-xl mb-4"></div>
-                {[...Array(5)].map((_, i) => (
-                  <div key={i} className="skeleton h-16 w-full rounded-lg mb-2" style={{ animationDelay: `${i * 0.1}s` }}></div>
-                ))}
+              <div className="p-6 space-y-2">
+                {[...Array(5)].map((_, i) => <div key={i} className="skeleton h-16 w-full rounded-lg"></div>)}
               </div>
             ) : (
               <>
@@ -796,15 +725,12 @@ const AdminDashboard = () => {
           </div>
         )}
 
-        {/* USERS TAB (with view orders & details) */}
+        {/* USERS TAB */}
         {activeTab === 'users' && (
           <div className="bg-white rounded-2xl shadow-sm border overflow-hidden animate-fade-in-up">
             {tabLoading ? (
-              <div className="p-6">
-                <div className="skeleton h-10 w-full rounded-xl mb-4"></div>
-                {[...Array(5)].map((_, i) => (
-                  <div key={i} className="skeleton h-16 w-full rounded-lg mb-2" style={{ animationDelay: `${i * 0.1}s` }}></div>
-                ))}
+              <div className="p-6 space-y-2">
+                {[...Array(5)].map((_, i) => <div key={i} className="skeleton h-16 w-full rounded-lg"></div>)}
               </div>
             ) : (
               <>
@@ -831,34 +757,17 @@ const AdminDashboard = () => {
                           </td>
                           <td className="py-3.5 px-5 text-gray-600">{u.email || u.emailId}</td>
                           <td className="py-3.5 px-5">
-                            <span className={`badge text-[10px] ${(u.role || '').toUpperCase() === 'ADMIN' ? 'badge-primary' : 'bg-gray-100 text-gray-600'}`}>{u.role || 'USER'}</span>
+                            <span className={`badge text-[10px] ${(u.role || '').replace('ROLE_', '').toUpperCase() === 'ADMIN' ? 'badge-primary' : 'bg-gray-100 text-gray-600'}`}>
+                              {(u.role || 'USER').replace('ROLE_', '')}
+                            </span>
                           </td>
                           <td className="py-3.5 px-5">
                             <div className="flex items-center justify-center space-x-1">
-                              {/* Change Role – only for super admin */}
                               {isSuperAdmin && (
-                                <button
-                                  onClick={() => {
-                                    setSelectedUser(u);
-                                    const plainRole = (u.role || 'USER').replace(/^ROLE_/, '');
-                                    setNewRole(plainRole);
-                                    setShowRoleModal(true);
-                                  }}
-                                  className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg"
-                                  title="Change Role"
-                                >
-                                  <FiUserCheck />
-                                </button>
+                                <button onClick={() => { setSelectedUser(u); setNewRole((u.role || 'USER').replace(/^ROLE_/, '')); setShowRoleModal(true); }} className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg" title="Change Role"><FiUserCheck /></button>
                               )}
-                              {/* Delete User – only for super admin */}
                               {isSuperAdmin && (
-                                <button
-                                  onClick={() => handleDeleteUser(u)}
-                                  className="p-2 text-red-500 hover:bg-red-50 rounded-lg"
-                                  title="Delete User"
-                                >
-                                  <FiTrash2 />
-                                </button>
+                                <button onClick={() => handleDeleteUser(u)} className="p-2 text-red-500 hover:bg-red-50 rounded-lg" title="Delete User"><FiTrash2 /></button>
                               )}
                               <button onClick={() => viewUserOrders(u)} className="p-2 text-green-600 hover:bg-green-50 rounded-lg" title="View Orders"><FiShoppingBag /></button>
                               <button onClick={() => viewUserDetails(u)} className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg" title="View Details"><FiUser /></button>
@@ -876,7 +785,7 @@ const AdminDashboard = () => {
         )}
       </div>
 
-      {/* ============ PRODUCT/CATEGORY/BRAND MODAL (unchanged) ============ */}
+      {/* PRODUCT / CATEGORY / BRAND MODAL */}
       {showModal && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={() => setShowModal(false)}>
           <div className="bg-white rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-2xl" onClick={(e) => e.stopPropagation()}>
@@ -933,7 +842,7 @@ const AdminDashboard = () => {
         </div>
       )}
 
-      {/* ============ ORDER STATUS MODAL (unchanged) ============ */}
+      {/* ORDER STATUS MODAL */}
       {showStatusModal && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl w-full max-w-md p-6 shadow-2xl">
@@ -943,9 +852,12 @@ const AdminDashboard = () => {
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
                 <select value={newStatus} onChange={(e) => setNewStatus(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-                  <option value="PENDING">Pending</option><option value="PROCESSING">Processing</option>
-                  <option value="CONFIRMED">Confirmed</option><option value="SHIPPED">Shipped</option>
-                  <option value="OUT_FOR_DELIVERY">Out for Delivery</option><option value="DELIVERED">Delivered</option>
+                  <option value="PENDING">Pending</option>
+                  <option value="PROCESSING">Processing</option>
+                  <option value="CONFIRMED">Confirmed</option>
+                  <option value="SHIPPED">Shipped</option>
+                  <option value="OUT_FOR_DELIVERY">Out for Delivery</option>
+                  <option value="DELIVERED">Delivered</option>
                   <option value="CANCELLED">Cancelled</option>
                 </select>
               </div>
@@ -962,7 +874,7 @@ const AdminDashboard = () => {
         </div>
       )}
 
-      {/* ============ USER ROLE MODAL (unchanged) ============ */}
+      {/* USER ROLE MODAL */}
       {showRoleModal && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl w-full max-w-md p-6 shadow-2xl">
@@ -970,7 +882,7 @@ const AdminDashboard = () => {
             <p className="text-sm text-gray-500 mb-4">User: <strong>{selectedUser?.name}</strong> ({selectedUser?.email || selectedUser?.emailId})</p>
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Current Role: <span className="font-semibold">{selectedUser?.role || 'USER'}</span></label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Current Role: <span className="font-semibold">{(selectedUser?.role || 'USER').replace('ROLE_', '')}</span></label>
                 <select value={newRole} onChange={(e) => setNewRole(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 mt-2">
                   <option value="USER">USER</option>
                   <option value="ADMIN">ADMIN</option>
@@ -985,13 +897,13 @@ const AdminDashboard = () => {
         </div>
       )}
 
-      {/* ============ DELETE CONFIRMATION MODAL (unchanged) ============ */}
+      {/* DELETE CONFIRMATION MODAL */}
       {deleteConfirm && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl w-full max-w-sm p-6 shadow-2xl text-center">
             <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4"><FiTrash2 className="text-red-600 text-2xl" /></div>
             <h3 className="text-lg font-bold text-gray-900 mb-2">Delete {deleteConfirm.type}?</h3>
-            <p className="text-gray-500 text-sm mb-6">Are you sure you want to delete <strong>"{deleteConfirm.name}"</strong>? This action cannot be undone.</p>
+            <p className="text-gray-500 text-sm mb-6">Are you sure you want to delete <strong>"{deleteConfirm.name}"</strong>? This cannot be undone.</p>
             <div className="flex space-x-3">
               <button onClick={() => handleDelete(deleteConfirm.type, deleteConfirm.id)} className="flex-1 bg-red-600 text-white py-2.5 rounded-lg font-semibold hover:bg-red-700 transition-colors text-sm">Delete</button>
               <button onClick={() => setDeleteConfirm(null)} className="flex-1 border border-gray-300 py-2.5 rounded-lg font-semibold hover:bg-gray-50 transition-colors text-sm">Cancel</button>
@@ -1000,7 +912,7 @@ const AdminDashboard = () => {
         </div>
       )}
 
-      {/* ============ USER ORDERS MODAL (NEW) ============ */}
+      {/* USER ORDERS MODAL */}
       {userOrdersModal && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={() => setUserOrdersModal(false)}>
           <div className="bg-white rounded-2xl w-full max-w-3xl max-h-[80vh] overflow-y-auto shadow-2xl p-6" onClick={(e) => e.stopPropagation()}>
@@ -1027,7 +939,7 @@ const AdminDashboard = () => {
         </div>
       )}
 
-      {/* ============ USER DETAILS MODAL (NEW, READ-ONLY) ============ */}
+      {/* USER DETAILS MODAL */}
       {userDetailModal && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={() => setUserDetailModal(false)}>
           <div className="bg-white rounded-2xl w-full max-w-md p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
@@ -1041,14 +953,13 @@ const AdminDashboard = () => {
                 <p><strong>Email:</strong> {detailUser.email || detailUser.emailId}</p>
                 <p><strong>Phone:</strong> {detailUser.phoneNumber || 'N/A'}</p>
                 <p><strong>Address:</strong> {detailUser.address || 'N/A'}</p>
-                <p><strong>Role:</strong> {detailUser.role || 'USER'}</p>
+                <p><strong>Role:</strong> {(detailUser.role || 'USER').replace('ROLE_', '')}</p>
                 <p><strong>Created:</strong> {detailUser.createdAt ? new Date(detailUser.createdAt).toLocaleDateString() : 'N/A'}</p>
               </div>
             )}
           </div>
         </div>
       )}
-
     </div>
   );
 };
