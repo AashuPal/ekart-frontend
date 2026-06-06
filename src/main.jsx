@@ -6,6 +6,20 @@ import { AuthProvider } from './context/AuthContext';
 import App from './App';
 import './index.css';
 
+// Normalize duplicate slashes in the URL path before React Router mounts.
+// This fixes cases like https://ekartms.netlify.app//reset-password?token=...
+const normalizeUrlPath = () => {
+  if (typeof window !== 'undefined') {
+    const { pathname, search, hash } = window.location;
+    const normalizedPath = pathname.replace(/\/\/{2,}/g, '/');
+    if (pathname !== normalizedPath) {
+      window.location.replace(`${window.location.origin}${normalizedPath}${search}${hash}`);
+    }
+  }
+};
+
+normalizeUrlPath();
+
 // Create future flags for React Router v6 to prepare for v7
 const routerFuture = {
   v7_startTransition: true,
