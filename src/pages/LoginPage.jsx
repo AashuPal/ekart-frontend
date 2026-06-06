@@ -43,7 +43,12 @@ const LoginPage = () => {
       return;
     }
 
-    const REDIRECT_URI = import.meta.env.VITE_GOOGLE_REDIRECT_URI || `${window.location.origin}/auth/google/callback`;
+    const configuredRedirectUri = import.meta.env.VITE_GOOGLE_REDIRECT_URI;
+    const expectedRedirectUri = `${window.location.origin}/auth/google/callback`;
+    const REDIRECT_URI = configuredRedirectUri && configuredRedirectUri.startsWith(window.location.origin)
+      ? configuredRedirectUri
+      : expectedRedirectUri;
+
     window.location.href = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${GOOGLE_CLIENT_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&response_type=code&scope=openid email profile&access_type=offline&prompt=consent`;
   };
 
