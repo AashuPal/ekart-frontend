@@ -37,7 +37,7 @@ const ProfilePage = () => {
         requestData.verifiedEmail = formData.email;
       }
 
-      await authAPI.updateProfile(requestData, userEmail);
+      await authAPI.updateProfile(requestData);
 
       // Update local state and localStorage with the saved data
       const updatedUser = { ...user, ...formData };

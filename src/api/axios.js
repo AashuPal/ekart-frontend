@@ -37,22 +37,6 @@ API.interceptors.response.use(
     return Promise.reject(error);
   }
 );
-// ----- Admin Headers Interceptor (add after the token interceptor) -----
-API.interceptors.request.use(
-  (config) => {
-    const user = JSON.parse(localStorage.getItem('user') || '{}');
-    if (user.email || user.emailId) {
-      config.headers['X-User-Email'] = user.email || user.emailId;
-    }
-    if (user.role) {
-      const role = user.role.startsWith('ROLE_') ? user.role : `ROLE_${user.role}`;
-      config.headers['X-User-Role'] = role;
-    }
-    return config;
-  },
-  (error) => Promise.reject(error)
-);
-
 export default API;
 
 // ==================== AUTH API ====================
@@ -68,12 +52,7 @@ export const authAPI = {
   changePassword: (data) => API.post('/auth/change-password', null, {
     params: { oldPassword: data.oldPassword, newPassword: data.newPassword }
   }),
-  updateProfile: (data, userEmail) =>
-    API.put('/auth/profile', data, {
-      headers: {
-        'X-User-Email': userEmail,
-      },
-    }),
+  updateProfile: (data) => API.put('/auth/profile', data),
   googleLogin: (idToken) => API.post('/auth/google', { idToken }),
   checkVerification: (email) => API.get(`/auth/check-verification?email=${email}`),
   syncFirebase: (email, password) => API.post(`/auth/sync-firebase?email=${email}&password=${password}`),
