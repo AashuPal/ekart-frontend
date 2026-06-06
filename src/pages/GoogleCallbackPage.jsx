@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { FiCheckCircle, FiXCircle, FiLoader, FiArrowLeft } from 'react-icons/fi';
+import api from '../api/services';
 
 const GoogleCallbackPage = () => {
   const [searchParams] = useSearchParams();
@@ -17,20 +18,9 @@ const GoogleCallbackPage = () => {
       return;
     }
 
-    // Use relative URL – Vite proxy will forward to the backend
-    fetch('/auth/google', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ code }),
-    })
-      .then(async (res) => {
-        if (!res.ok) {
-          const err = await res.json();
-          throw new Error(err.error || 'Google login failed');
-        }
-        return res.json();
-      })
-      .then((data) => {
+    api.post('/auth/google', { code })
+      .then((res) => {
+        const data = res.data;
         localStorage.setItem('token', data.token);
         localStorage.setItem('user', JSON.stringify({
           email: data.email,
@@ -42,8 +32,9 @@ const GoogleCallbackPage = () => {
         setTimeout(() => navigate('/'), 0);
       })
       .catch((err) => {
+        const errorDetail = err.response?.data?.error || err.response?.data?.message || err.message;
         setStatus('error');
-        setErrorMsg(err.message);
+        setErrorMsg(errorDetail || 'Google login failed');
       });
   }, [searchParams, navigate]);
 
