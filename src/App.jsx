@@ -43,6 +43,7 @@ function App() {
 
           {/* Email Verification */}
           <Route path="/verify" element={<VerifyEmailPage />} />
+          <Route path="/auth/verify" element={<VerifyEmailPage />} />
           <Route path="/verify-email-sent" element={<VerifyEmailSentPage />} />
 
           {/* Google OAuth2 Callback */}

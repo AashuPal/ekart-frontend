@@ -38,7 +38,12 @@ const LoginPage = () => {
   // Google Login
   const handleGoogleLogin = () => {
     const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
-    const REDIRECT_URI = import.meta.env.VITE_GOOGLE_REDIRECT_URI || 'http://localhost:5173/auth/google/callback';
+    if (!GOOGLE_CLIENT_ID) {
+      toast.error('Google OAuth client is not configured. Set VITE_GOOGLE_CLIENT_ID in your environment.');
+      return;
+    }
+
+    const REDIRECT_URI = import.meta.env.VITE_GOOGLE_REDIRECT_URI || `${window.location.origin}/auth/google/callback`;
     window.location.href = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${GOOGLE_CLIENT_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&response_type=code&scope=openid email profile&access_type=offline&prompt=consent`;
   };
 
