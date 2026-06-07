@@ -3,6 +3,7 @@ import { Navigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { authAPI } from '../api/axios';
+import { FiLoader } from 'react-icons/fi';
 
 const ProtectedRoute = ({ children }) => {
   const token = localStorage.getItem('token');
@@ -40,7 +41,18 @@ const ProtectedRoute = ({ children }) => {
 
   if (!token) return <Navigate to="/login" replace />;
 
-  if (checking) return null;
+  if (checking) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="flex flex-col items-center">
+          <div className="w-16 h-16 rounded-full bg-yellow-100 flex items-center justify-center mb-4">
+            <FiLoader className="text-4xl text-yellow-500 animate-spin" />
+          </div>
+          <p className="text-gray-600">Checking account verification…</p>
+        </div>
+      </div>
+    );
+  }
 
   if (!verified) {
     const email = user?.email || user?.emailId || '';
