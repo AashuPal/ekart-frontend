@@ -11,7 +11,7 @@ import './index.css';
 const normalizeUrlPath = () => {
   if (typeof window !== 'undefined') {
     const { pathname, search, hash } = window.location;
-    const normalizedPath = pathname.replace(/\/\/{2,}/g, '/');
+      const normalizedPath = pathname.replace(/\/{2,}/g, '/');
     if (pathname !== normalizedPath) {
       window.location.replace(`${window.location.origin}${normalizedPath}${search}${hash}`);
     }
