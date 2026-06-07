@@ -7,12 +7,15 @@ import { FiLoader } from 'react-icons/fi';
 
 const ProtectedRoute = ({ children }) => {
   const token = localStorage.getItem('token');
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [checking, setChecking] = useState(true);
   const [verified, setVerified] = useState(true);
 
   useEffect(() => {
     let mounted = true;
+    // wait until AuthProvider finishes initializing
+    if (authLoading) return () => { mounted = false; };
+
     if (!token || !user) {
       setChecking(false);
       return () => { mounted = false; };
