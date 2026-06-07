@@ -55,8 +55,29 @@ export const authAPI = {
   // Admin
   getUsers: () => api.get('/auth/users'),
   getUserByEmail: (email) => api.get(`/auth/user/${encodeURIComponent(email)}`),
-  updateUserRole: (email, role) => api.put(`/auth/users/${encodeURIComponent(email)}/role?role=${encodeURIComponent(role)}`),
-  deleteUser: (email) => api.delete(`/auth/users/${encodeURIComponent(email)}`),
+  updateUserRole: async (email, role) => {
+    const encodedEmail = encodeURIComponent(email);
+    const encodedRole = encodeURIComponent(role);
+    try {
+      return await api.put(`/auth/users/${encodedEmail}/role?role=${encodedRole}`);
+    } catch (err) {
+      if (err.response?.status >= 500) {
+        return api.put(`/auth/users/role?email=${encodedEmail}&role=${encodedRole}`);
+      }
+      throw err;
+    }
+  },
+  deleteUser: async (email) => {
+    const encodedEmail = encodeURIComponent(email);
+    try {
+      return await api.delete(`/auth/users/${encodedEmail}`);
+    } catch (err) {
+      if (err.response?.status >= 500) {
+        return api.delete(`/auth/users?email=${encodedEmail}`);
+      }
+      throw err;
+    }
+  },
 };
 
 // ==================== PRODUCT API ====================
