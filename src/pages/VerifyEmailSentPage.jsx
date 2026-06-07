@@ -1,7 +1,8 @@
 import { useLocation, useNavigate } from 'react-router-dom';
 import { FiMail, FiRefreshCw, FiArrowRight, FiCheckCircle } from 'react-icons/fi';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import api from '../api/services';
+import { authAPI } from '../api/axios';
 
 const VerifyEmailSentPage = () => {
   const location = useLocation();
@@ -22,6 +23,35 @@ const VerifyEmailSentPage = () => {
       setResending(false);
     }
   };
+
+  // Poll verification status every 1 second and redirect when verified
+  useEffect(() => {
+    if (!email) return undefined;
+    let mounted = true;
+    const check = async () => {
+      try {
+        const res = await authAPI.checkVerification(email);
+        const d = res?.data;
+        let verified = false;
+        if (d !== undefined) {
+          if (typeof d === 'boolean') verified = d;
+          else if (d.verified != null) verified = !!d.verified;
+          else if (d.isVerified != null) verified = !!d.isVerified;
+        }
+        if (verified && mounted) {
+          setMessage('Email verified — redirecting to login...');
+          setTimeout(() => navigate('/login'), 500);
+        }
+      } catch (e) {
+        // ignore errors while polling
+      }
+    };
+
+    // run immediately, then every 1s
+    check();
+    const id = setInterval(check, 1000);
+    return () => { mounted = false; clearInterval(id); };
+  }, [email, navigate]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 flex items-center justify-center p-4 pt-20">
