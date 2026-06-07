@@ -26,15 +26,34 @@ const ProfilePage = () => {
     try {
       const userEmail = user?.email || user?.emailId || '';
 
-      const requestData = {
-        name: formData.name || user.name,
-        phoneNumber: formData.phoneNumber || user.phoneNumber || '',
-        address: formData.address || user.address || '',
-      };
+      const requestData = {};
+      const currentEmail = user?.email || user?.emailId || '';
+      const currentPhone = user?.phoneNumber || '';
+      const currentAddress = user?.address || '';
+      const updatedEmail = formData.email || currentEmail;
+      const updatedPhone = formData.phoneNumber || currentPhone;
+      const updatedAddress = formData.address || currentAddress;
 
-      // Only include verifiedEmail if the user is a phone‑only user and the email field is being changed
-      if (isPhoneUser && formData.email) {
-        requestData.verifiedEmail = formData.email;
+      if (formData.name && formData.name !== user?.name) {
+        requestData.name = formData.name;
+      }
+
+      if (!isPhoneUser && updatedPhone !== currentPhone) {
+        requestData.phoneNumber = updatedPhone;
+      }
+
+      if (updatedAddress !== currentAddress) {
+        requestData.address = updatedAddress;
+      }
+
+      if (isPhoneUser && updatedEmail && updatedEmail !== currentEmail) {
+        requestData.verifiedEmail = updatedEmail;
+      }
+
+      if (Object.keys(requestData).length === 0) {
+        toast('No changes to save');
+        setSaving(false);
+        return;
       }
 
       await authAPI.updateProfile(requestData);
