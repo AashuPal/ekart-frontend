@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { FiCheckCircle, FiXCircle, FiLoader, FiArrowLeft } from 'react-icons/fi';
 import api from '../api/services';
+import { authAPI } from '../api/axios';
 
 const GoogleCallbackPage = () => {
   const [searchParams] = useSearchParams();
@@ -19,7 +20,7 @@ const GoogleCallbackPage = () => {
     }
 
     api.post('/auth/google', { code })
-      .then((res) => {
+      .then(async (res) => {
         const data = res.data;
         localStorage.setItem('token', data.token);
         localStorage.setItem('user', JSON.stringify({
@@ -28,6 +29,25 @@ const GoogleCallbackPage = () => {
           phoneNumber: data.phoneNumber,
           role: data.role,
         }));
+        // after login, check verification and redirect accordingly
+        try {
+          const check = await authAPI.checkVerification(data.email);
+          const d = check?.data;
+          let verified = true;
+          if (d !== undefined) {
+            if (typeof d === 'boolean') verified = d;
+            else if (d.verified != null) verified = !!d.verified;
+            else if (d.isVerified != null) verified = !!d.isVerified;
+          }
+          if (!verified) {
+            setStatus('success');
+            navigate('/verify-email-sent', { state: { email: data.email } });
+            return;
+          }
+        } catch (e) {
+          // ignore
+        }
+
         setStatus('success');
         setTimeout(() => navigate('/'), 0);
       })

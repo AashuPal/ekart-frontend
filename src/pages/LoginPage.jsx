@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import api from '../api/services';
+import { authAPI } from '../api/axios';
+import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
 import { FiMail, FiLock, FiPhone, FiKey, FiArrowRight } from 'react-icons/fi';
 
@@ -15,6 +17,7 @@ const LoginPage = () => {
   const [phone, setPhone] = useState('');
   const [otp, setOtp] = useState('');
   const [otpSent, setOtpSent] = useState(false);
+  const { login } = useAuth();
 
   // Email Login
   const handleEmailLogin = async (e) => {
@@ -22,14 +25,19 @@ const LoginPage = () => {
     setError('');
     setLoading(true);
     try {
-      const res = await api.post('/auth/login', { email, password });
-      const { token, ...user } = res.data;
-      localStorage.setItem('token', token);
-      localStorage.setItem('user', JSON.stringify(user));
-      toast.success('Welcome back! 🎉');
+      const result = await login(email, password);
+      if (!result.success) {
+        setError(result.message || 'Invalid email or password');
+        return;
+      }
+      // if email not verified, send user to resend/verification page
+      if (result.verified === false) {
+        navigate('/verify-email-sent', { state: { email } });
+        return;
+      }
       navigate('/');
     } catch (err) {
-      setError(err.response?.data?.error || 'Invalid email or password');
+      setError(err?.response?.data?.error || 'Invalid email or password');
     } finally {
       setLoading(false);
     }
@@ -76,6 +84,23 @@ const LoginPage = () => {
       const { token, ...user } = res.data;
       localStorage.setItem('token', token);
       localStorage.setItem('user', JSON.stringify(user));
+      // Check verification status
+      try {
+        const check = await authAPI.checkVerification(user.email || user.emailId);
+        const d = check?.data;
+        let verified = true;
+        if (d !== undefined) {
+          if (typeof d === 'boolean') verified = d;
+          else if (d.verified != null) verified = !!d.verified;
+          else if (d.isVerified != null) verified = !!d.isVerified;
+        }
+        if (!verified) {
+          navigate('/verify-email-sent', { state: { email: user.email || user.emailId } });
+          return;
+        }
+      } catch (e) {
+        // ignore check errors and continue
+      }
       toast.success('Welcome! 📱');
       navigate('/');
     } catch (err) {

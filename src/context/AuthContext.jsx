@@ -65,13 +65,13 @@ export const AuthProvider = ({ children }) => {
     try {
       const response = await authAPI.login({ email, password });
       const { token: newToken, ...userData } = response.data;
-      
+
       localStorage.setItem('token', newToken);
       localStorage.setItem('user', JSON.stringify(userData));
-      
+
       setToken(newToken);
       setUser(userData);
-      
+
       const guestCart = JSON.parse(localStorage.getItem('cart') || '[]');
       if (guestCart.length > 0) {
         const userCartKey = `cart_${userData.email || userData.emailId}`;
@@ -88,9 +88,26 @@ export const AuthProvider = ({ children }) => {
         localStorage.removeItem('cart');
         window.dispatchEvent(new Event('cartUpdated'));
       }
-      
+
       toast.success(`Welcome back, ${userData.name}!`);
-      return { success: true };
+
+      // After login, check whether email is verified. If not verified, inform caller.
+      let verified = true;
+      try {
+        const checkRes = await authAPI.checkVerification(userData.email || userData.emailId);
+        const d = checkRes?.data;
+        if (d !== undefined) {
+          if (typeof d === 'boolean') verified = d;
+          else if (d.verified != null) verified = !!d.verified;
+          else if (d.isVerified != null) verified = !!d.isVerified;
+          else if (d.status != null) verified = String(d.status).toLowerCase() === 'verified';
+        }
+      } catch (e) {
+        // if check fails, assume verified so we don't block login flow; backend should enforce protections
+        verified = true;
+      }
+
+      return { success: true, verified };
     } catch (error) {
       const message = error.response?.data?.message || error.response?.data?.error || 'Login failed. Please try again.';
       toast.error(message);
