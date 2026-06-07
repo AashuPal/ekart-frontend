@@ -43,25 +43,25 @@ export default API;
 export const authAPI = {
   login: (data) => API.post('/auth/login', data),
   register: (data) => API.post('/auth/register', data),
-  verifyEmail: (token) => API.get(`/auth/verify?token=${token}`),
-  resendVerification: (email) => API.post(`/auth/resend-verification?email=${email}`),
-  sendOtp: (phone) => API.post(`/auth/otp?phone=${phone}`),
-  verifyOtp: (phone, otp) => API.post(`/auth/otp/verify?phone=${phone}&otp=${otp}`),
-  forgotPassword: (email) => API.post(`/auth/forgot-password?email=${email}`),
-  resetPassword: (token, newPassword) => API.post(`/auth/reset-password?token=${token}&newPassword=${newPassword}`),
+  verifyEmail: (token) => API.get(`/auth/verify?token=${encodeURIComponent(token)}`),
+  resendVerification: (email) => API.post(`/auth/resend-verification?email=${encodeURIComponent(email)}`),
+  sendOtp: (phone) => API.post(`/auth/otp?phone=${encodeURIComponent(phone)}`),
+  verifyOtp: (phone, otp) => API.post(`/auth/otp/verify?phone=${encodeURIComponent(phone)}&otp=${encodeURIComponent(otp)}`),
+  forgotPassword: (email) => API.post(`/auth/forgot-password?email=${encodeURIComponent(email)}`),
+  resetPassword: (token, newPassword) => API.post(`/auth/reset-password?token=${encodeURIComponent(token)}&newPassword=${encodeURIComponent(newPassword)}`),
   changePassword: (data) => API.post('/auth/change-password', null, {
     params: { oldPassword: data.oldPassword, newPassword: data.newPassword }
   }),
   updateProfile: (data) => API.put('/auth/profile', data),
   googleLogin: (idToken) => API.post('/auth/google', { idToken }),
-  checkVerification: (email) => API.get(`/auth/check-verification?email=${email}`),
-  syncFirebase: (email, password) => API.post(`/auth/sync-firebase?email=${email}&password=${password}`),
-  autoVerify: (email) => API.post(`/auth/auto-verify?email=${email}`),
+  checkVerification: (email) => API.get(`/auth/check-verification?email=${encodeURIComponent(email)}`),
+  syncFirebase: (email, password) => API.post(`/auth/sync-firebase?email=${encodeURIComponent(email)}&password=${encodeURIComponent(password)}`),
+  autoVerify: (email) => API.post(`/auth/auto-verify?email=${encodeURIComponent(email)}`),
   // Admin user management
   getUsers: () => API.get('/auth/users'),
-  getUserByEmail: (email) => API.get(`/auth/user/${email}`),
-  updateUserRole: (email, role) => API.put(`/auth/users/${email}/role?role=${role}`),
-  deleteUser: (email) => API.delete(`/auth/users/${email}`),
+  getUserByEmail: (email) => API.get(`/auth/user/${encodeURIComponent(email)}`),
+  updateUserRole: (email, role) => API.put(`/auth/users/${encodeURIComponent(email)}/role?role=${encodeURIComponent(role)}`),
+  deleteUser: (email) => API.delete(`/auth/users/${encodeURIComponent(email)}`),
 };
 
 // ==================== PRODUCT API ====================

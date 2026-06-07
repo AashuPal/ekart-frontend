@@ -39,24 +39,24 @@ export default api;
 export const authAPI = {
   login: (data) => api.post('/auth/login', data),
   register: (data) => api.post('/auth/register', data),
-  verifyEmail: (token) => api.get(`/auth/verify?token=${token}`),
-  resendVerification: (email) => api.post(`/auth/resend-verification?email=${email}`),
-  sendOtp: (phone) => api.post(`/auth/otp?phone=${phone}`),
-  verifyOtp: (phone, otp) => api.post(`/auth/otp/verify?phone=${phone}&otp=${otp}`),
-  forgotPassword: (email) => api.post(`/auth/forgot-password?email=${email}`),
-  resetPassword: (token, newPassword) => api.post(`/auth/reset-password?token=${token}&newPassword=${newPassword}`),
+  verifyEmail: (token) => api.get(`/auth/verify?token=${encodeURIComponent(token)}`),
+  resendVerification: (email) => api.post(`/auth/resend-verification?email=${encodeURIComponent(email)}`),
+  sendOtp: (phone) => api.post(`/auth/otp?phone=${encodeURIComponent(phone)}`),
+  verifyOtp: (phone, otp) => api.post(`/auth/otp/verify?phone=${encodeURIComponent(phone)}&otp=${encodeURIComponent(otp)}`),
+  forgotPassword: (email) => api.post(`/auth/forgot-password?email=${encodeURIComponent(email)}`),
+  resetPassword: (token, newPassword) => api.post(`/auth/reset-password?token=${encodeURIComponent(token)}&newPassword=${encodeURIComponent(newPassword)}`),
   changePassword: (data) => api.post('/auth/change-password', null, {
     params: { oldPassword: data.oldPassword, newPassword: data.newPassword }
   }),
   googleLogin: (idToken) => api.post('/auth/google', { idToken }),
-  checkVerification: (email) => api.get(`/auth/check-verification?email=${email}`),
-  syncFirebase: (email, password) => api.post(`/auth/sync-firebase?email=${email}&password=${password}`),
-  autoVerify: (email) => api.post(`/auth/auto-verify?email=${email}`),
+  checkVerification: (email) => api.get(`/auth/check-verification?email=${encodeURIComponent(email)}`),
+  syncFirebase: (email, password) => api.post(`/auth/sync-firebase?email=${encodeURIComponent(email)}&password=${encodeURIComponent(password)}`),
+  autoVerify: (email) => api.post(`/auth/auto-verify?email=${encodeURIComponent(email)}`),
   // Admin
   getUsers: () => api.get('/auth/users'),
-  getUserByEmail: (email) => api.get(`/auth/user/${email}`),
-  updateUserRole: (email, role) => api.put(`/auth/users/${email}/role?role=${role}`),
-  deleteUser: (email) => api.delete(`/auth/users/${email}`),
+  getUserByEmail: (email) => api.get(`/auth/user/${encodeURIComponent(email)}`),
+  updateUserRole: (email, role) => api.put(`/auth/users/${encodeURIComponent(email)}/role?role=${encodeURIComponent(role)}`),
+  deleteUser: (email) => api.delete(`/auth/users/${encodeURIComponent(email)}`),
 };
 
 // ==================== PRODUCT API ====================
