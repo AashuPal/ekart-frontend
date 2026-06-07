@@ -128,6 +128,7 @@ export const paymentAPI = {
 
 // ==================== NOTIFICATION API ====================
 export const notificationAPI = {
+  sendEmail: (data) => API.post('/api/v1/email/send', data),
   sendOrderConfirmation: (data) => API.post('/api/v1/email/order-confirmation', data),
   sendOrderStatusUpdate: (data) => API.post('/api/v1/email/order-status', data),
   sendPaymentConfirmation: (data) => API.post('/api/v1/email/payment-confirmation', data),
