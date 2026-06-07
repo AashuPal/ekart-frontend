@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { FiCreditCard, FiTruck, FiCheck, FiShield, FiRotateCcw, FiLock } from 'react-icons/fi';
 import toast from 'react-hot-toast';
-import { orderAPI, profileAddressAPI } from '../api/axios';   // <-- uses profile addresses
+import { orderAPI, profileAddressAPI, notificationAPI } from '../api/axios';   // <-- uses profile addresses
 import AddressSelector from '../components/AddressSelector';
 import AddressForm from '../components/AddressForm';
 
@@ -192,6 +192,21 @@ const CheckoutPage = () => {
       localStorage.removeItem('cart');
       window.dispatchEvent(new Event('cartUpdated'));
       toast.success('Order placed successfully!');
+
+      const orderNumber = response.data.orderNumber || response.data.id;
+      try {
+        await notificationAPI.sendOrderConfirmation({
+          to: email,
+          customerName: orderData.userName,
+          orderNumber,
+          orderTotal: orderData.totalAmount,
+          itemList: cartItems.map(item => `${item.productName} x${item.quantity}`).join(', '),
+          trackingNumber: 'Pending',
+          paymentMethod: paymentMethod,
+        });
+      } catch (emailErr) {
+        console.warn('Order confirmation email failed', emailErr);
+      }
 
       const orderId = response.data.id || response.data.orderNumber;
       navigate(`/order-confirmation/${orderId}`);

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { paymentAPI } from '../api/axios';
+import { paymentAPI, notificationAPI } from '../api/axios';
 import { useAuth } from '../context/AuthContext';
 import { FiCreditCard, FiPhone, FiCheckCircle, FiXCircle, FiLoader, FiShield, FiArrowLeft } from 'react-icons/fi';
 import toast from 'react-hot-toast';
@@ -63,6 +63,18 @@ const PaymentPage = () => {
       
       setPaymentStatus('success');
       toast.success('Payment successful!');
+
+      try {
+        await notificationAPI.sendPaymentConfirmation({
+          to: email,
+          customerName: user?.name || 'Customer',
+          orderNumber: orderId,
+          orderTotal: amount,
+          paymentMethod,
+        });
+      } catch (emailErr) {
+        console.warn('Payment confirmation email failed', emailErr);
+      }
       
       setTimeout(() => {
         navigate(`/order-confirmation/${orderId}`);
