@@ -107,6 +107,16 @@ export const AuthProvider = ({ children }) => {
         verified = true;
       }
 
+      // If email is not verified, attempt to resend verification email automatically
+      if (!verified) {
+        try {
+          await authAPI.resendVerification(userData.email || userData.emailId);
+          toast.success('Verification email resent. Check your inbox.');
+        } catch (e) {
+          // ignore resend errors; user can manually resend from the verification page
+        }
+      }
+
       return { success: true, verified };
     } catch (error) {
       const message = error.response?.data?.message || error.response?.data?.error || 'Login failed. Please try again.';
