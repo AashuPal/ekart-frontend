@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { FiMail, FiArrowLeft, FiCheckCircle, FiAlertCircle } from 'react-icons/fi';
 import toast from 'react-hot-toast';
+import { authAPI } from '../api/axios';
 
 const ForgotPasswordPage = () => {
   const [email, setEmail] = useState('');
@@ -19,16 +20,11 @@ const ForgotPasswordPage = () => {
     setMsg('');
 
     try {
-      // Using the same endpoint you already had – works perfectly
-      const res = await fetch(`/auth/forgot-password?email=${encodeURIComponent(email)}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' }
-      });
-      const data = await res.json();
-      setMsg(data.message || 'Reset link sent! Check your email.');
+      const res = await authAPI.forgotPassword(email);
+      setMsg(res.data?.message || 'Reset link sent! Check your email.');
       toast.success('Reset link sent to your email');
     } catch (err) {
-      const errorMsg = err.response?.data?.error || 'Failed to send reset link';
+      const errorMsg = err.response?.data?.error || err.response?.data?.message || 'Failed to send reset link';
       setMsg(errorMsg);
       toast.error(errorMsg);
     } finally {
