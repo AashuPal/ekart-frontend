@@ -65,13 +65,21 @@ const PaymentPage = () => {
       toast.success('Payment successful!');
 
       try {
+        // await notificationAPI.sendPaymentConfirmation({
+        //   to: email,
+        //   customerName: user?.name || 'Customer',
+        //   orderNumber: orderId,
+        //   orderTotal: amount,
+        //   paymentMethod,
+        // });
         await notificationAPI.sendPaymentConfirmation({
-          to: email,
-          customerName: user?.name || 'Customer',
-          orderNumber: orderId,
-          orderTotal: amount,
-          paymentMethod,
-        });
+  to: email,
+  customerName: user?.name || 'Customer',
+  orderNumber: orderId,
+  orderTotal: String(amount),      // Swagger shows string
+  paymentMethod,
+  transactionId: response?.data?.transactionId || 'TXN-' + Date.now(),
+});
       } catch (emailErr) {
         console.warn('Payment confirmation email failed', emailErr);
       }
